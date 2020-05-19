@@ -1,0 +1,9 @@
+一、权限问题：
+	1、提示mv的时候权限不够，则需要给权限即可
+	sudo mv file0 dir0
+	
+二、指令相关：
+	1、在终端中复制与粘贴，分别为：
+		Ctrl+shift+c
+		Ctrl+shift+v
+	
