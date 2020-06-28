@@ -5,7 +5,9 @@
 		1、gcc -g main.c -o test 生成调试文件test
 		2、gdb -q test 省略gdb各种介绍信息，去掉-q则表示，打印所有介绍信息
 		
-	2、查看源码 list指令，有点像cat
+	2、查看源码 list指令，有点像cat，默认显示十行代码
+		1、list function：查看整个函数的代码
+		2、list 行号：查看行号为中心的前后五行代码
 		
 	3、运行代码
 		1、run 简写r
@@ -37,7 +39,15 @@
 			
 	6、查看变量
 		1、print 如print a 则会打印变量a此时的数据
+			print ++a：打印运行这段代码之后的值，这个操作有点像python了
+			print function(argv)：把参数传入，然后打印函数的输出值，这个也有点骚气
 		2、whatis 同上
+		3、其他的暂时用不上，等具体使用时再学习
 	
 	7、退出gdb调试
 		1、quit 简写q 
+		
+	8、分割窗口 layout指令
+		1、layout src：显示源代码窗口，可以一边调试一边看代码
+		2、layout asm：显示反汇编窗口，这个暂时不知道怎么用
+		3、其他指令等日后使用时再学。
