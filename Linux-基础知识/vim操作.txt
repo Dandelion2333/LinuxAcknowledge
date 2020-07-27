@@ -1,0 +1,5 @@
+一、vim设置
+	1、显示行号 
+		set number
+	2、设置tab键缩进（注意：等于号两边不要有空格）
+		set tabstop=4

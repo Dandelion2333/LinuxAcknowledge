@@ -1,0 +1,46 @@
+一、通用技能
+	1、数据
+	2、基础算法
+	
+二、Linux基础技能
+	1、cmake
+		1.1、cmake编译单个文件的方法
+			1、编写CMakeLists.txt 文件，在main.c文件目录下放置此文件
+				#cmake最低版本需求，不加入此行会受到警告信息
+				CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+				#项目名称 main为文件名
+				PROJECT(main) 
+				#把当前目录(.)下所有源代码文件和头文件加入变量SRC_LIST
+				AUX_SOURCE_DIRECTORY(. SRC_LIST)
+				#生成应用程序 main (在windows下会自动生成main.exe)
+				ADD_EXECUTABLE(main ${SRC_LIST})
+			
+			2、准备待编译的文件，main.c文件
+			
+			3、创建built文件夹，在main.c文件所在的目录下放置此文件夹
+				目的：编译过程中的临时文件、可执行文件都放在built目录下，便于管理
+				使用：使用指令cmake ..
+				结果：自动生成Makefile文件
+			4、执行Makefile文件
+				方法：使用指令make
+				结果：自动生成main，然后使用./main
+				
+		1.2、多个文件的编译方法
+			1、每个source文件夹下放一个CMakeLists.txt文件
+			2、主目录下放一个CMakeLists.txt文件
+			3、然后在built目录下cmake .. 然后再make
+				
+	2、Makefile
+	3、gdb调试
+
+三、Linux项目开发技能
+	1、韦东山写的Linux应用开发手册
+	
+四、项目相关
+	1、熟悉BX11P的上下电流程
+	
+	
+	
+	
+	
+	
