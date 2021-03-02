@@ -1,0 +1,26 @@
+核心语句：
+	指定生成目标文件
+	add_executable(Main ${DIR_SRCS})
+
+	把指定文件并使用PRINT_LIB保存
+	.表示当前目录下所有文件
+	aux_source_directory(. PRINT_LIB)
+
+	把后者生成名为FunPrint的库文件
+	add_library (FunPrint ${PRINT_LIB})
+
+	为Main添加名为FunSub的库文件
+	target_link_libraries(Main FunSub)
+
+	添加名为Sub的子目录
+	add_subdirectory(Sub)
+	
+其他语句：
+	指定工程名称
+	PROJECT (Project)
+	
+	打印相关数据
+	MESSAGE(STATUS "This is HELLO_BINARY_DIR " ${HELLO_BINARY_DIR})
+	
+	指定最低编译版本
+	cmake_minimum_required(VERSION 2.8.12)

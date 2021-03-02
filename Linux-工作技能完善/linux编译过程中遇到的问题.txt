@@ -1,0 +1,15 @@
+1、提示在xxx.cpp文件中的xxx.h文件找不到
+	原因：xxx.cpp文件路径下的Makefile文件未把xxx.h路径包含进去。
+	解决：在Makefile中添加相应的路径即可
+	
+2、make[1]: arm-linux-g++：命令未找到
+	原因：makefile文件中引用的编译器版本不正确
+	解决：参考已经编过的Makefile，借用它的编译器即可
+	
+3、error: 'S_IREAD' was not declared in this scope
+	原因：提示未找到S_IREAD，由于未引用该变量所在的头文件
+	解决：添加该变量所在的头文件即可
+	
+4、/5.3.1/../../../../arm-linux-gnueabi/bin/ld: 找不到 -lTaskDB
+	原因：主函数下的Makefile文件引用了 -lTaskDB文件，而本地未使用库，而是用源代码编译
+	解决：修改主函数下Makefile，去掉 -lTaskDB，并在taskDB目录下添加新的Makefile文件

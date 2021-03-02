@@ -1,0 +1,9 @@
+安装软件：
+1、GCC工具
+	sudo apt-get  install  build-essential
+		备注：之前遇到过系统提示找不到安装包，那是因为我把安装包的名字输错了
+	
+操作指令：
+	1、删除一个路径下的所有的文件：rm -rf *
+	2、删除单个文件：rm -rf file_name
+	3、删除一个文件夹：rm -rf folder_name
