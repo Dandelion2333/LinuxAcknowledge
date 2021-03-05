@@ -6,6 +6,12 @@
 #include<string.h>  
 #include<unistd.h>  
 #define BUFFER_SIZE 1024  
+
+char recv_msg[BUFFER_SIZE];  
+char mainMsg[BUFFER_SIZE - 20];  
+char sendMsg[BUFFER_SIZE];
+
+void MakeFrame();
   
 int main(int argc, const char * argv[])  
 {  
@@ -22,8 +28,6 @@ int main(int argc, const char * argv[])
         perror("socket error");  
         return 1;  
     }  
-    char recv_msg[BUFFER_SIZE];  
-    char send_msg[BUFFER_SIZE];  
   
     if(connect(server_sock_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) == 0)  
     {  
@@ -40,13 +44,18 @@ int main(int argc, const char * argv[])
             FD_SET(STDIN_FILENO, &client_fd_set);  
             FD_SET(server_sock_fd, &client_fd_set);  
     
+            /* select函数监听所有的句柄 */
             select(server_sock_fd + 1, &client_fd_set, NULL, NULL, &tv);  
+
             /* 判断client_fd_set是否被建立成功 */
             if(FD_ISSET(STDIN_FILENO, &client_fd_set))  
             {  
-                bzero(send_msg, BUFFER_SIZE);  
-                fgets(send_msg, BUFFER_SIZE, stdin);  
-                if(send(server_sock_fd, send_msg, BUFFER_SIZE, 0) == -1)  
+                bzero(mainMsg, BUFFER_SIZE);  
+                printf("me:");
+                fgets(mainMsg, BUFFER_SIZE, stdin);  
+
+                MakeFrame();
+                if(send(server_sock_fd, sendMsg, BUFFER_SIZE, 0) == -1)  
                 {  
                     perror("发送消息出错!\n");  
                 }  
@@ -63,7 +72,7 @@ int main(int argc, const char * argv[])
                     }  
 
                     recv_msg[byte_num] = '\0';  
-                    printf("client recv:%s\n", recv_msg);  
+                    printf("\t\trecv:%s", recv_msg);    
                 }  
                 else if(byte_num < 0)  
                 {  
@@ -80,3 +89,14 @@ int main(int argc, const char * argv[])
     
     return 0;  
 } 
+
+/* 打包发送数据帧 */
+void MakeFrame()
+{
+    char sendClient[10] = "b003";
+    char recvClient[10] = "a001";
+
+    memcpy(&sendMsg[0], sendClient, 10);
+    memcpy(&sendMsg[10], recvClient, 10);
+    memcpy(&sendMsg[20], mainMsg, sizeof(mainMsg));    
+}

@@ -9,12 +9,32 @@
 #define CONCURRENT_MAX 8    // 应用层同时可以处理的连接  
 #define SERVER_PORT 11332  
 #define BUFFER_SIZE 1024  
-#define QUIT_CMD "quit"  
-int client_fds[CONCURRENT_MAX];  
+#define QUIT_CMD "quit\n"  
+
+struct FdMap
+{
+    int valid;
+    int clientFd;
+    char num[10];
+};
+
+FdMap fdMap[1024] = {0};
+
+int client_fds[CONCURRENT_MAX];
+//fd_set  
+fd_set server_fd_set;
+
+void ServerSendMsgToAllClient();
+void AcceptClient(int server_sock_fd);
+void RecvClientMsg();
+
+void ServerPassthrough(char *recvMsg);
+void GetClientFd(int *clientFd, char *recvMsg);
+void UpdateFdMap(int clientFd, char *recvMsg);
+
 int main(int argc, const char * argv[])  
 {  
     char input_msg[BUFFER_SIZE];  
-    char recv_msg[BUFFER_SIZE];  
     //本地地址  
     struct sockaddr_in server_addr;  
     server_addr.sin_family = AF_INET;  
@@ -41,8 +61,6 @@ int main(int argc, const char * argv[])
         perror("listen error");  
         return 1;  
     }  
-    //fd_set  
-    fd_set server_fd_set;  
     int max_fd = -1;  
     struct timeval tv;  //超时时间设置  
     while(1)  
@@ -89,99 +107,178 @@ int main(int argc, const char * argv[])
         }  
         else if(ret == 0)  
         {  
-            printf("select 超时\n");  
+            // printf("select 超时\n");  
             continue;  
         }  
         else  
-        {  
-            if(FD_ISSET(STDIN_FILENO, &server_fd_set))  
-            {  
-                printf("发送消息：\n");  
-                bzero(input_msg, BUFFER_SIZE);  
-                fgets(input_msg, BUFFER_SIZE, stdin);  
-                
-                /* 输入“quit"则退出服务器   */
-                if(strcmp(input_msg, QUIT_CMD) == 0)  
-                {  
-                    exit(0);  
-                }  
-                /* 相当于群发给所有连上服务器的客户端 */
-                for(int i = 0; i < CONCURRENT_MAX; i++)  
-                {  
-                    if(client_fds[i] != 0)  
-                    {  
-                        printf("client_fds[%d]=%d\n", i, client_fds[i]);  
-                        send(client_fds[i], input_msg, BUFFER_SIZE, 0);  
-                    }  
-                }  
-            }  
+        {
+            ServerSendMsgToAllClient();
 
-            if(FD_ISSET(server_sock_fd, &server_fd_set))  
-            {  
-                struct sockaddr_in client_address;  
-                socklen_t address_len;  
+            AcceptClient(server_sock_fd);
 
-                /* 判断客户端连接 */
-                int client_sock_fd = accept(server_sock_fd, (struct sockaddr *)&client_address, &address_len);  
-                printf("new connection client_sock_fd = %d\n", client_sock_fd);  
-                if(client_sock_fd > 0)  
-                {  
-                    int index = -1;  
-                    for(int i = 0; i < CONCURRENT_MAX; i++)  
-                    {  
-                        if(client_fds[i] == 0)  
-                        {  
-                            index = i;  
-                            client_fds[i] = client_sock_fd;  
-                            break;  
-                        }  
-                    }  
-                    if(index >= 0)  
-                    {  
-                        printf("新客户端(%d)加入成功 %s:%d\n", index, inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));  
-                    }  
-                    else  
-                    {  
-                        bzero(input_msg, BUFFER_SIZE);  
-                        strcpy(input_msg, "服务器加入的客户端数达到最大值,无法加入!\n");  
-                        send(client_sock_fd, input_msg, BUFFER_SIZE, 0);  
-                        printf("客户端连接数达到最大值，新客户端加入失败 %s:%d\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));  
-                    }  
-                }  
-            }  
-
-            for(int i = 0; i < CONCURRENT_MAX; i++)  
-            {  
-                if(client_fds[i] != 0)  
-                {  
-                    if(FD_ISSET(client_fds[i], &server_fd_set))  
-                    {  
-                        //处理某个客户端过来的消息  
-                        bzero(recv_msg, BUFFER_SIZE);  
-                        long byte_num = recv(client_fds[i], recv_msg, BUFFER_SIZE, 0);  
-                        if (byte_num > 0)  
-                        {  
-                            if(byte_num > BUFFER_SIZE)  
-                            {  
-                                byte_num = BUFFER_SIZE;  
-                            }  
-                            recv_msg[byte_num] = '\0';  
-                            printf("客户端(%d):%s\n", i, recv_msg);  
-                        }  
-                        else if(byte_num < 0)  
-                        {  
-                            printf("从客户端(%d)接受消息出错.\n", i);  
-                        }  
-                        else  
-                        {  
-                            FD_CLR(client_fds[i], &server_fd_set);  
-                            client_fds[i] = 0;  
-                            printf("客户端(%d)退出了\n", i);  
-                        }  
-                    }  
-                }  
-            }  
+            RecvClientMsg();
         }  
     }  
     return 0;  
 } 
+
+void ServerSendMsgToAllClient()
+{
+    char input_msg[BUFFER_SIZE];  
+
+    /* 服务器发送数据给客户端 */
+    if(FD_ISSET(STDIN_FILENO, &server_fd_set))  
+    {  
+        printf("发送消息：\n");  
+        bzero(input_msg, BUFFER_SIZE);  
+        fgets(input_msg, BUFFER_SIZE, stdin);  
+        
+        /* 输入“quit"则退出服务器   */
+        if(strcmp(input_msg, QUIT_CMD) == 0)  
+        {  
+            exit(0);  
+        }  
+        /* 相当于群发给所有连上服务器的客户端 */
+        for(int i = 0; i < CONCURRENT_MAX; i++)  
+        {  
+            if(client_fds[i] != 0)  
+            {  
+                printf("client_fds[%d]=%d\n", i, client_fds[i]);  
+                send(client_fds[i], input_msg, BUFFER_SIZE, 0);  
+            }  
+        }  
+    }
+}
+
+void AcceptClient(int server_sock_fd)
+{
+    char input_msg[BUFFER_SIZE];  
+
+    if(FD_ISSET(server_sock_fd, &server_fd_set))  
+    {  
+        struct sockaddr_in client_address;  
+        socklen_t address_len;  
+
+        /* 判断客户端连接 */
+        int client_sock_fd = accept(server_sock_fd, (struct sockaddr *)&client_address, &address_len);  
+        printf("new connection client_sock_fd = %d\n", client_sock_fd);  
+        if(client_sock_fd > 0)  
+        {  
+            int index = -1;  
+            for(int i = 0; i < CONCURRENT_MAX; i++)  
+            {  
+                if(client_fds[i] == 0)  
+                {  
+                    index = i;  
+                    client_fds[i] = client_sock_fd;  
+                    break;  
+                }  
+            }  
+            if(index >= 0)  
+            {  
+                printf("新客户端(%d)加入成功 %s:%d\n", index, inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));  
+            }  
+            else  
+            {  
+                bzero(input_msg, BUFFER_SIZE);  
+                strcpy(input_msg, "服务器加入的客户端数达到最大值,无法加入!\n");  
+                send(client_sock_fd, input_msg, BUFFER_SIZE, 0);  
+                printf("客户端连接数达到最大值，新客户端加入失败 %s:%d\n", inet_ntoa(client_address.sin_addr), ntohs(client_address.sin_port));  
+            }  
+        }  
+    }
+}
+
+void RecvClientMsg()
+{
+    char recv_msg[BUFFER_SIZE];  
+ 
+    for(int i = 0; i < CONCURRENT_MAX; i++)  
+    {  
+        if(client_fds[i] != 0)  
+        {  
+            if(FD_ISSET(client_fds[i], &server_fd_set))  
+            {  
+                //处理某个客户端过来的消息  
+                bzero(recv_msg, BUFFER_SIZE);  
+                long byte_num = recv(client_fds[i], recv_msg, BUFFER_SIZE, 0);
+
+                if (byte_num > 0)  
+                {  
+                    if(byte_num > BUFFER_SIZE)  
+                    {  
+                        byte_num = BUFFER_SIZE;  
+                    }  
+
+                    UpdateFdMap(client_fds[i], recv_msg);
+                    ServerPassthrough(recv_msg);
+                    // printf("客户端(%d):%s\n", i, recv_msg);
+                }
+                else if(byte_num < 0)  
+                {  
+                    printf("从客户端(%d)接受消息出错.\n", i);  
+                }  
+                else  
+                {  
+                    FD_CLR(client_fds[i], &server_fd_set);  
+                    client_fds[i] = 0;  
+                    printf("客户端(%d)退出了\n", i);  
+                }  
+            }  
+        }  
+    }  
+}
+
+void ServerPassthrough(char *recvMsg)
+{
+    int clientFd = 0;
+    GetClientFd(&clientFd, recvMsg);
+
+    printf("send name:%s\nrecv name:%smsg:%s\n", &recvMsg[0], &recvMsg[10], &recvMsg[20]);
+
+    /* 服务器透传客户端的数据 */
+    send(clientFd, &recvMsg[20], BUFFER_SIZE, 0);  
+}
+
+void GetClientFd(int *clientFd, char *recvMsg)
+{
+    for (int i = 0; i < 1024; i++)
+    {
+        if(strcmp(&recvMsg[10], (char *)&fdMap[i].num) == 0)
+        {
+            *clientFd = fdMap[i].clientFd;
+            // printf("clientFd:%d\n", *clientFd);
+        }
+    }
+}
+
+void UpdateFdMap(int clientFd, char *recvMsg)
+{
+    bool flag = false;
+    int cnt = 0;
+    /* 更新客户端套接字与客户端的关系，便于服务器发送数据给客户端 */
+    for (int i = 0; i < 1024; i++)
+    {
+        if(fdMap[i].clientFd == clientFd)
+        {
+            flag = true;
+            break;
+        }
+    }
+
+    if(flag == false)
+    {
+        for (int i = 0; i < 1024; i++)
+        {
+            if(fdMap[i].valid == 0)
+            {
+                fdMap[i].valid = 1;
+                fdMap[i].clientFd = clientFd;
+                memcpy(fdMap[i].num, &recvMsg[0], 10);
+                printf("fdMap[%d].clientFd:%d\n", i, fdMap[i].clientFd);
+                printf("fdMap[%d].num:%s\n", i, fdMap[i].num);
+                break;
+            }
+        }
+    }
+}
